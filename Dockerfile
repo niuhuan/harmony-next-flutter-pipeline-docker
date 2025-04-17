@@ -5,8 +5,8 @@ FROM ghcr.io/sanchuanhehe/harmony-next-pipeline-docker/harmonyos-ci-image:latest
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN git clone \
-        https://gitee.com/openharmony-sig/flutter_flutter.git \
-        -b 3.22.1-ohos-0.1.0 \
+        https://gitcode.com/openharmony-sig/flutter_flutter.git \
+        -b 3.22.0-ohos \
         /opt/flutter
 
 ENV FLUTTER_ROOT=/opt/flutter
@@ -16,7 +16,7 @@ ENV PUB_CACHE=$HOME/.pub-cache
 RUN apt-get update && \
     apt-get install -y curl
 
-RUN flutter create --platforms ohos first_app && cd first_app && flutter pub get && cd ohos && hvigorw assembleHap
+RUN flutter create --platforms=ohos first_app && cd first_app && flutter pub get && cd ohos && hvigorw assembleHap
 RUN rm -rf first_app
 
 # 设置工作目录
