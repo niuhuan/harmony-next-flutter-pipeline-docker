@@ -16,12 +16,7 @@ ENV PUB_CACHE=$HOME/.pub-cache
 RUN apt-get update && \
     apt-get install -y curl
 
-RUN flutter create --platforms=ohos first_app \
-        && cd first_app  \
-        && flutter pub get  \
-        && flutter build hap --target-platform=ohos-arm64 \
-        || cd ohos \
-        && hvigorw assembleHap --release 
+RUN flutter create --platforms=ohos first_app && cd first_app && flutter pub get && flutter build hap --target-platform=ohos-arm64
 
 RUN rm -rf first_app
 

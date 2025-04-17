@@ -31,8 +31,8 @@ jobs:
         run: |
           docker build -t ghcr.io/${{ github.repository }}/image:latest .
 
-      # # 4. 推送 Docker 镜像到 GitHub Package Registry
-      # - name: Push Docker image
-      #   run: |
-      #     docker push ghcr.io/${{ github.repository }}/image:latest
+      # 4. 推送 Docker 镜像到 GitHub Package Registry
+      - name: Push Docker image
+        run: |
+          docker push ghcr.io/${{ github.repository }}/image:latest
 
