@@ -6,7 +6,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 RUN git clone \
         https://gitcode.com/openharmony-sig/flutter_flutter.git \
-        -b 3.22.0-ohos \
+        -b --VERSION-- \
         /opt/flutter
 
 ENV FLUTTER_ROOT=/opt/flutter
