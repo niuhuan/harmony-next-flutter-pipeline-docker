@@ -6,15 +6,21 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 RUN git clone \
         https://gitcode.com/openharmony-sig/flutter_flutter.git \
-        -b --VERSION-- \
+        -b --FLUTTER_REF-- \
         /opt/flutter
 
 ENV FLUTTER_ROOT=/opt/flutter
 ENV PATH=$FLUTTER_ROOT/bin:$PATH
 ENV PUB_CACHE=$HOME/.pub-cache
 
-RUN apt-get update && \
-    apt-get install -y curl
+RUN (type -p wget >/dev/null || (apt update && apt-get install wget -y)) \
+        && mkdir -p -m 755 /etc/apt/keyrings \
+        && out=$(mktemp) && wget -nv -O$out https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+        && cat $out | tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null \
+        && chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg \
+        && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
+        && apt update \
+        && apt install curl gh -y
 
 RUN flutter create --platforms=ohos first_app && cd first_app && flutter pub get && flutter build hap --target-platform=ohos-arm64
 

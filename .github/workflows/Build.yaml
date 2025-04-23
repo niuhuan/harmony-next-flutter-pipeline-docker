@@ -1,0 +1,43 @@
+name: Build
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. 拉取代码
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # 2. 登录 GitHub Package Registry
+      - name: Log in to GitHub Package Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # 3. 构建 Docker 镜像
+      # 4. 推送 Docker 镜像到 GitHub Package Registry
+      - name: Build Docker image
+        run: |
+          mkdir tmp
+          cd tmp
+          # 循环 ../configs/*.conf 文件
+          for file in $(ls ../configs/*); do
+            # 获取文件名
+            filename=$(basename $file)
+            # 获取文件内容
+            content=$(cat $file)
+            # 替换 Dockerfile 中的 --FLUTTER_REF-- 为文件内容
+            cat ../Dockerfile > Dockerfile
+            sed -i "s/--FLUTTER_REF--/${content}/g" Dockerfile
+            # 构建 Docker 镜像
+            docker build -t ghcr.io/${{ github.repository }}/image:${content} .
+            # 推送 Docker 镜像到 GitHub Package Registry
+            docker push ghcr.io/${{ github.repository }}/image:${content}
+          done
+
