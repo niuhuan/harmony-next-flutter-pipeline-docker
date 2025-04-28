@@ -2,6 +2,12 @@ name: Build
 
 on:
   workflow_dispatch:
+    inputs:
+      CONFIG_FILE_NAME:
+        type: string
+        default: ''
+        description: 'Specify config file name'
+        required: false
 
 jobs:
   build-and-publish:
@@ -30,6 +36,13 @@ jobs:
           for file in $(ls ../configs/*); do
             # 获取文件名
             filename=$(basename $file)
+            #
+            if [ '${{ github.event.inputs.CONFIG_FILE_NAME }}' != '' ]; then
+              if [ $filename != '${{ github.event.inputs.CONFIG_FILE_NAME }}' ]; then
+                echo "Skip ${filename}"
+                continue
+              fi
+            fi
             # 获取文件内容
             content=$(cat $file)
             # 替换 Dockerfile 中的 --FLUTTER_REF-- 为文件内容
