@@ -3,7 +3,9 @@
 使用GithubActions构建基于flutter的鸿蒙NEXT项目
 
 - 鸿蒙命令行工具版本为 5.0.4
-- flutter 版本为 3.22.0-ohos
+- latest镜像 flutter 版本为 3.22.0-ohos
+- 可以使用不同标签引入flutter的不同版本
+- 已安装gh命令
 
 使用方式
 

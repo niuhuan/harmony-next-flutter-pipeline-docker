@@ -36,8 +36,8 @@ jobs:
             cat ../Dockerfile > Dockerfile
             sed -i "s/--FLUTTER_REF--/${content}/g" Dockerfile
             # 构建 Docker 镜像
-            docker build -t ghcr.io/${{ github.repository }}/image:${content} .
+            docker build -t ghcr.io/${{ github.repository }}/image:${filename} .
             # 推送 Docker 镜像到 GitHub Package Registry
-            docker push ghcr.io/${{ github.repository }}/image:${content}
+            docker push ghcr.io/${{ github.repository }}/image:${filename}
           done
 
