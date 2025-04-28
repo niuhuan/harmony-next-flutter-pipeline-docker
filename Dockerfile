@@ -13,6 +13,8 @@ ENV FLUTTER_ROOT=/opt/flutter
 ENV PATH=$FLUTTER_ROOT/bin:$PATH
 ENV PUB_CACHE=$HOME/.pub-cache
 
+RUN apt update && apt install curl -y
+
 RUN flutter create --platforms=ohos first_app && cd first_app && flutter pub get && flutter build hap --target-platform=ohos-arm64
 
 RUN rm -rf first_app
