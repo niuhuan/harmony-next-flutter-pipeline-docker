@@ -4,15 +4,46 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-and-publish:
+  prepare-matrix:
     runs-on: ubuntu-latest
-
     steps:
       # 1. 拉取代码
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # 2. 登录 GitHub Package Registry
+      # 2. 生成 matrix（按 ref 分组，合并同 ref 的多个 tag）
+      - name: Prepare build matrix
+        id: generate
+        run: |
+          sudo apt-get update && sudo apt-get install -y jq
+
+          shopt -s nullglob
+          files=(configs/*.json)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No JSON files found under configs/."
+            echo 'matrix={"include":[]}' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          MATRIX=$(jq -s 'sort_by(.ref) | group_by(.ref) | map({ref: .[0].ref, tags: map(.tag)}) | {include: .}' configs/*.json)
+          echo "matrix=${MATRIX}" >> "$GITHUB_OUTPUT"
+    outputs:
+      matrix: ${{ steps.generate.outputs.matrix }}
+
+  build-and-publish:
+    needs: prepare-matrix
+    runs-on: ubuntu-latest
+    strategy:
+      # 3. 使用动态 matrix（每个唯一 ref 构建一次）
+      matrix: ${{ fromJson(needs.prepare-matrix.outputs.matrix) }}
+      fail-fast: false
+
+    steps:
+      # 4. 拉取代码
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # 5. 登录 GitHub Package Registry
       - name: Log in to GitHub Package Registry
         uses: docker/login-action@v2
         with:
@@ -20,24 +51,35 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # 3. 构建 Docker 镜像
-      # 4. 推送 Docker 镜像到 GitHub Package Registry
-      - name: Build Docker image
+      # 6. 基于 ref 构建一次，并推送该 ref 下的所有 tag
+      - name: Build and push images for ref
         run: |
-          mkdir tmp
+          sudo apt-get update && sudo apt-get install -y jq
+
+          mkdir -p tmp
           cd tmp
-          # 循环 ../configs/*.conf 文件
-          for file in $(ls ../configs/*); do
-            # 获取文件名
-            filename=$(basename $file)
-            # 获取文件内容
-            content=$(cat $file)
-            # 替换 Dockerfile 中的 --FLUTTER_REF-- 为文件内容
-            cat ../Dockerfile > Dockerfile
-            sed -i "s/--FLUTTER_REF--/${content}/g" Dockerfile
-            # 构建 Docker 镜像
-            docker build -t ghcr.io/${{ github.repository }}/image:${filename} .
-            # 推送 Docker 镜像到 GitHub Package Registry
-            docker push ghcr.io/${{ github.repository }}/image:${filename}
+
+          # 替换 Dockerfile 中的 --FLUTTER_REF-- 为 matrix.ref
+          cat ../Dockerfile > Dockerfile
+          sed -i "s/--FLUTTER_REF--/${{ matrix.ref }}/g" Dockerfile
+
+          image_base="ghcr.io/${{ github.repository }}/image"
+
+          tags_json='${{ toJson(matrix.tags) }}'
+          first_tag=$(echo "$tags_json" | jq -r '.[0]')
+
+          # 构建一次（使用第一个 tag）
+          docker build -t "${image_base}:${first_tag}" .
+
+          # 为同一 ref 的其他 tag 创建别名
+          for tag in $(echo "$tags_json" | jq -r '.[]'); do
+            if [ "$tag" != "$first_tag" ]; then
+              docker tag "${image_base}:${first_tag}" "${image_base}:${tag}"
+            fi
+          done
+
+          # 推送所有 tag
+          for tag in $(echo "$tags_json" | jq -r '.[]'); do
+            docker push "${image_base}:${tag}"
           done
 

@@ -3,6 +3,7 @@ FROM ghcr.io/sanchuanhehe/harmony-next-pipeline-docker/harmonyos-ci-image:latest
 
 # 设置环境变量以避免交互式安装提示
 ENV DEBIAN_FRONTEND=noninteractive
+ENV PATH=$COMMANDLINE_TOOL_DIR/tool/node/bin:$PATH
 
 RUN git clone \
         https://gitcode.com/openharmony-sig/flutter_flutter.git \
