@@ -18,15 +18,18 @@ jobs:
           sudo apt-get update && sudo apt-get install -y jq
 
           shopt -s nullglob
-          files=(configs/*.json)
-          if [ ${#files[@]} -eq 0 ]; then
+          configs=(configs/*.json)
+
+          if [ ${#configs[@]} -eq 0 ]; then
             echo "No JSON files found under configs/."
-            echo 'matrix={"include":[]}' >> "$GITHUB_OUTPUT"
-            exit 0
+            MATRIX='{"include": []}'
+          else
+            MATRIX=$(jq -s 'sort_by(.ref) | group_by(.ref) | map({ref: .[0].ref, tags: map(.tag)}) | {include: .}' "${configs[@]}")
           fi
 
-          MATRIX=$(jq -s 'sort_by(.ref) | group_by(.ref) | map({ref: .[0].ref, tags: map(.tag)}) | {include: .}' configs/*.json)
-          echo "matrix=${MATRIX}" >> "$GITHUB_OUTPUT"
+          cat <<EOF >> "$GITHUB_OUTPUT"
+            matrix=${MATRIX}
+          EOF
     outputs:
       matrix: ${{ steps.generate.outputs.matrix }}
 
