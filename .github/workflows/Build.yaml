@@ -86,13 +86,8 @@ jobs:
             exit 0
           fi
 
-          # 若主 tag 已存在则复用，避免重复构建镜像
-          if docker manifest inspect "${image_base}:${first_tag}" >/dev/null 2>&1; then
-            echo "Image ${image_base}:${first_tag} already exists, skip build."
-            docker pull "${image_base}:${first_tag}"
-          else
-            docker build -t "${image_base}:${first_tag}" .
-          fi
+          # 每次都重新构建主 tag
+          docker build -t "${image_base}:${first_tag}" .
 
           # 为同一 ref 的其他 tag 创建别名
           for tag in $(echo "$tags_json" | jq -r '.[]'); do
