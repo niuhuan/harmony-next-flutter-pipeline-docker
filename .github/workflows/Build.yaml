@@ -11,21 +11,32 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # 2. 生成 matrix（按 ref 分组，合并同 ref 的多个 tag）
+      # 2. 生成 matrix（从项目根目录 matrix.json 读取）
       - name: Prepare build matrix
         id: generate
         run: |
           sudo apt-get update && sudo apt-get install -y jq
 
-          shopt -s nullglob
-          ls configs/*.json
-          configs=(configs/*.json)
-
-          if [ ${#configs[@]} -eq 0 ]; then
-            echo "No JSON files found under configs/."
+          if [ ! -f matrix.json ]; then
+            echo "matrix.json not found in repository root."
             MATRIX='{"include": []}'
           else
-            MATRIX=$(jq -s -c 'sort_by(.ref) | group_by(.ref) | map({ref: .[0].ref, tags: map(.tag)}) | {include: .}' "${configs[@]}")
+            MATRIX=$(jq -c '
+              (
+                if type == "array" then .
+                elif has("matrix") then .matrix
+                else [.]
+                end
+              )
+              | sort_by(.ref, .sdk)
+              | group_by(.ref, .sdk)
+              | map({
+                  ref: .[0].ref,
+                  sdk: .[0].sdk,
+                  tags: (map(.tags // []) | add | unique)
+                })
+              | {include: .}
+            ' matrix.json)
           fi
 
           echo "matrix=$MATRIX" >> "$GITHUB_OUTPUT"
@@ -36,7 +47,7 @@ jobs:
     needs: prepare-matrix
     runs-on: ubuntu-latest
     strategy:
-      # 3. 使用动态 matrix（每个唯一 ref 构建一次）
+      # 3. 使用动态 matrix（每个 ref+sdk 组合最多构建一次）
       matrix: ${{ fromJson(needs.prepare-matrix.outputs.matrix) }}
       fail-fast: false
 
@@ -62,7 +73,7 @@ jobs:
           cd tmp
 
           # 替换 Dockerfile 中的 --FLUTTER_REF-- 为 matrix.ref
-          cat ../Dockerfile > Dockerfile
+          cp ../Dockerfile Dockerfile
           sed -i "s/--FLUTTER_REF--/${{ matrix.ref }}/g" Dockerfile
 
           image_base="ghcr.io/${{ github.repository }}/image"
@@ -70,8 +81,18 @@ jobs:
           tags_json='${{ toJson(matrix.tags) }}'
           first_tag=$(echo "$tags_json" | jq -r '.[0]')
 
-          # 构建一次（使用第一个 tag）
-          docker build -t "${image_base}:${first_tag}" .
+          if [ "$first_tag" = "null" ] || [ -z "$first_tag" ]; then
+            echo "No tags found for ref=${{ matrix.ref }}, skip."
+            exit 0
+          fi
+
+          # 若主 tag 已存在则复用，避免重复构建镜像
+          if docker manifest inspect "${image_base}:${first_tag}" >/dev/null 2>&1; then
+            echo "Image ${image_base}:${first_tag} already exists, skip build."
+            docker pull "${image_base}:${first_tag}"
+          else
+            docker build -t "${image_base}:${first_tag}" .
+          fi
 
           # 为同一 ref 的其他 tag 创建别名
           for tag in $(echo "$tags_json" | jq -r '.[]'); do
